@@ -1,0 +1,83 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: >
+  AWS CloudFormation template to create an ALB for placing a public
+  facing load balancer that will route traffic to lambda targets.
+  This is for convenience and demos - not an appropriate production
+  configuration.
+
+Parameters:
+  LoadBalancerName:
+    Type: String
+    Default: geoffry
+  
+  VpcStackName:
+    Type: String
+    Default: veepc
+
+  IAMCertName:
+    Type: String
+    Default: mycert
+
+Resources:
+
+  AlbSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: ALB allowed ports
+      VpcId:
+        Fn::ImportValue: !Join [-, [vpc, Ref: 'VpcStackName', 'VpcId']]
+      SecurityGroupIngress:
+        IpProtocol: tcp
+        FromPort: 443
+        ToPort: 443
+        CidrIp: 0.0.0.0/0
+
+  LambdaALB:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      Name: !Ref LoadBalancerName
+      Scheme: internet-facing
+      LoadBalancerAttributes:
+      - Key: idle_timeout.timeout_seconds
+        Value: '30'
+      SecurityGroups: [!Ref AlbSecurityGroup]
+      Subnets:
+      - Fn::ImportValue: !Join [-, [vpc, Ref: 'VpcStackName', 'PubSubnetAz1']]
+      - Fn::ImportValue: !Join [-, [vpc, Ref: 'VpcStackName', 'PubSubnetAz2']]
+
+
+  ALBListener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      Certificates:
+      - CertificateArn: !Join ['', ['arn:aws:iam::', Ref: 'AWS::AccountId', ':server-certificate/', Ref: 'IAMCertName']]
+      DefaultActions:
+      - Type: forward
+        TargetGroupArn: !Ref DefaultTargetGroup
+      LoadBalancerArn: !Ref LambdaALB
+      Port: '443'
+      Protocol: HTTPS
+
+  DefaultTargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      VpcId:
+        Fn::ImportValue: !Join [-, [vpc, Ref: 'VpcStackName', 'VpcId']]
+      Port: 443
+      Protocol: HTTPS
+
+Outputs:
+  ALBArn:
+    Value: !Ref LambdaALB
+    Export:
+      Name:
+        !Join [-, [alb, Ref: 'AWS::StackName', ALBArn]]
+  
+  ALBListenerArn:
+    Value: !Ref ALBListener
+    Export:
+      Name:
+        !Join [-, [alb, Ref: 'AWS::StackName', ListenerArn]]
+
+  ALBDnsName:
+    Value: !GetAtt LambdaALB.DNSName

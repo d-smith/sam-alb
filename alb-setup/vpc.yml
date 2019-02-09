@@ -1,0 +1,137 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: >
+  AWS CloudFormation template to create a VPC for placing a public
+  facing load balancer that will route traffic to lambda targets.
+  This is for convenience and demos - not an appropriate production
+  configuration.
+Resources:
+
+## VPC with public subnets in two availability zones
+
+  Vpc:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: '172.31.0.0/16'
+      EnableDnsSupport: 'true'
+      EnableDnsHostnames: 'true'
+
+  PubSubnetAz1:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref Vpc
+      CidrBlock: '172.31.0.0/24'
+      AvailabilityZone: !Select [ 0, "Fn::GetAZs": !Ref "AWS::Region" ]
+      MapPublicIpOnLaunch: true
+      Tags:
+      - Key: Name
+        Value: public-1
+
+  PubSubnetAz2:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref Vpc
+      CidrBlock: '172.31.1.0/24'
+      AvailabilityZone: !Select [ 1, "Fn::GetAZs": !Ref "AWS::Region" ]
+      MapPublicIpOnLaunch: true
+      Tags:
+      - Key: Name
+        Value: public-2
+
+
+
+## Gateway and routing
+
+  InternetGateway:
+    Type: AWS::EC2::InternetGateway
+
+  AttachGateway:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      VpcId: !Ref Vpc
+      InternetGatewayId: !Ref InternetGateway
+  
+  RouteViaIgw:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref Vpc
+
+  PublicRouteViaIgw:
+    Type: AWS::EC2::Route
+    DependsOn: AttachGateway
+    Properties:
+      RouteTableId: !Ref RouteViaIgw
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref InternetGateway
+
+  PubSubnet1RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PubSubnetAz1
+      RouteTableId: !Ref RouteViaIgw
+
+  PubSubnet2RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PubSubnetAz2
+      RouteTableId: !Ref RouteViaIgw
+
+
+ 
+ 
+
+  
+  WebIngress:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Web Ingress
+      VpcId: !Ref Vpc
+      SecurityGroupIngress:
+        IpProtocol: tcp
+        FromPort: 80
+        ToPort: 80
+        CidrIp: 0.0.0.0/0
+
+  LBIngress:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Web Ingress
+      VpcId: !Ref Vpc
+      SecurityGroupIngress:
+        IpProtocol: tcp
+        FromPort: 0
+        ToPort: 65535
+        SourceSecurityGroupId: !GetAtt WebIngress.GroupId
+
+Outputs:
+  VpcId:
+    Description: The ID of the VPC
+    Value: !Ref Vpc
+    Export:
+      Name:
+        !Join [-, [vpc, Ref: 'AWS::StackName', 'VpcId']]
+ 
+  PublicSubnet1:
+    Value: !Ref PubSubnetAz1
+    Export:
+      Name: 
+        !Join [-, [vpc, Ref: 'AWS::StackName', 'PubSubnetAz1']]
+
+  PublicSubnet2:
+    Value: !Ref PubSubnetAz2
+    Export:
+      Name: 
+        !Join [-, [vpc, Ref: 'AWS::StackName', 'PubSubnetAz2']]
+
+  WebIngressSecurityGroup:
+    Description: Security group id of the ECS cluster instances
+    Value: !GetAtt WebIngress.GroupId
+    Export:
+      Name:
+        !Join [-, [vpc, Ref: 'AWS::StackName', 'WebIngressSGId']]
+
+  LBIngressSecurityGroup:
+    Description: Security group id of the ECS cluster instances
+    Value: !GetAtt LBIngress.GroupId
+    Export:
+      Name:
+        !Join [-, [vpc, Ref: 'AWS::StackName', 'LBIngressSGId']]
