@@ -45,12 +45,14 @@ Note the target group arn from the output - you need this to add permissions and
 
 Add permission:
 
+```console
 aws lambda add-permission \
 --function-name hwFunction \
 --statement-id elb1 \
 --principal elasticloadbalancing.amazonaws.com \
 --action lambda:InvokeFunction \
 --source-arn arn:aws:elasticloadbalancing:us-east-1:000011112222:targetgroup/hello-lambda/1bcc30c57e645c80
+```
 
 Register the target:
 
