@@ -23,22 +23,53 @@ sam package --template-file template.yml --s3-bucket sampack-97068 > packaged.ym
 sam deploy --stack-name mf --template-file packaged.yml  --capabilities CAPABILTY_IAM
 ```
 
+Deploy the lambda - review the settings in the Makefile, then:
 
-TODO - figure this out in cloud formation
+```console
+make
+```
 
-To add using console:
+Creating the target is not supported in cloud formation at the moment. Use the cli to finish things:
 
-EC2 - target groups, pick the once created in CF
-Click targets, then create
-Pick listener create via alb setup, edit routing rules: forward /hello to hello-lambda
+Create the target group:
 
-And
+```console
+aws elbv2 create-target-group \
+--name hello-lambda \
+--target-type lambda \
+--health-check-enabled \
+--health-check-path /hello
+```
 
-aws lambda add-permission \ 
+Note the target group arn from the output - you need this to add permissions and register the target. You will also need the lambda ARN.
+
+Add permission:
+
+aws lambda add-permission \
 --function-name hwFunction \
 --statement-id elb1 \
 --principal elasticloadbalancing.amazonaws.com \
 --action lambda:InvokeFunction \
---source-arn arn:aws:elasticloadbalancing:us-east-1:000011112222:targetgroup/hello-lambda/d2b38af5fc783473
+--source-arn arn:aws:elasticloadbalancing:us-east-1:000011112222:targetgroup/hello-lambda/1bcc30c57e645c80
+
+Register the target:
+
+```console
+aws elbv2 register-targets \
+--target-group-arn arn:aws:elasticloadbalancing:us-east-1:000011112222:targetgroup/hello-lambda/1bcc30c57e645c80 \
+--targets Id=arn:aws:lambda:us-east-1:000011112222:function:hwFunction
+```
+
+Add a rule:
+
+```console
+aws elbv2 create-rule \
+--listener-arn arn:aws:elasticloadbalancing:us-east-1:000011112222:listener/app/geoffry/1a7bc1fd290c73b7/6bbc80adaeea67e0 \
+--conditions Field=path-pattern,Values=/hello \
+--priority 1 \
+--actions Type=forward,TargetGroupArn=arn:aws:elasticloadbalancing:us-east-1:000011112222:targetgroup/hello-lambda/1bcc30c57e645c80
+```
+
+
 
 
