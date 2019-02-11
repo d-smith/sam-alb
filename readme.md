@@ -29,7 +29,7 @@ Deploy the lambda - review the settings in the Makefile, then:
 make
 ```
 
-Creating the target is not supported in cloud formation at the moment. Use the cli to finish things:
+Creating the target is not supported in cloud formation at the moment (TODO - verify this). Use the cli to finish things:
 
 Create the target group:
 
