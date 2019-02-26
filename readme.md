@@ -20,7 +20,7 @@ Create a vps stack, then an alb stack, then...
 
 ```console
 sam package --template-file template.yml --s3-bucket sampack-97068 > packaged.yml
-sam deploy --stack-name mf --template-file packaged.yml  --capabilities CAPABILTY_IAM
+sam deploy --stack-name mf --template-file packaged.yml  --capabilities CAPABILITY_IAM
 ```
 
 Deploy the lambda - review the settings in the Makefile, then:
