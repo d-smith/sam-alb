@@ -1,0 +1,16 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: >
+    Custom resource to create a lambda target group and return info related to it
+
+
+
+Resources:
+
+    CustomTG:
+        Type: AWS::Serverless::Function
+        Properties:
+            FunctionName: customTargetGroup
+            CodeUri: src/
+            Handler: customtg.handler
+            Runtime: nodejs8.10
