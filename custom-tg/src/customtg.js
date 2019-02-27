@@ -1,5 +1,11 @@
 
-var aws = require("aws-sdk");
+var AWS = require('aws-sdk');
+
+//aws elbv2 create-target-group \
+//--name hello-lambda \
+//--target-type lambda \
+//--health-check-enabled \
+//--health-check-path /hello
 
 exports.handler = function (event, context) {
 
@@ -11,19 +17,32 @@ exports.handler = function (event, context) {
         return;
     }
 
-    var responseData = {
-        "foo": "some foo shit"
-    };
+    let result = {
+        "foo":"yep"
+    }
+
+    let fnName = event.ResourceProperties.Function;
+    console.log(`create target group for ${fnName}`);
+
+    var elbv2 = new AWS.ELBv2();
+    let params = {
+        Name: `${fnName}-tg`,
+        TargetType: 'lambda',
+        HealthCheckEnabled: true,
+        HealthCheckPath: '/health'
+    }
+
+    let createPromise = elbv2.createTargetGroup(params).promise();
+    createPromise.then(function(data){
+        console.log(`tg ok: ${JSON.stringify(data)}`);
+    }).catch(function(err) {
+        console.log(err);
+    })
+
 
     var responseStatus = "SUCCESS";
-    sendResponse(event, context, responseStatus, responseData);
+    sendResponse(event, context, responseStatus, result);
 };
-
-// Check if the image is a beta or rc image. The Lambda function won't return any of those images.
-function isBeta(imageName) {
-    return imageName.toLowerCase().indexOf("beta") > -1 || imageName.toLowerCase().indexOf(".rc") > -1;
-}
-
 
 // Send response to the pre-signed S3 URL 
 function sendResponse(event, context, responseStatus, responseData) {
