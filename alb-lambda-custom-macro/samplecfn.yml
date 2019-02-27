@@ -1,0 +1,15 @@
+AWSTemplateFormatVersion: 2010-09-09 
+Description: This template generates the requested number of IAM users that will have the same custom EC2 policy for EC2 resources tagged with Owner:devteam. The user will be prompted to reset their passwords on next sign-in. Also an EC2 instance will be created for each user simulating a classroom.
+Transform: "albmacro"
+
+Resources:
+
+  MyCustomResource: 
+    Type: "Custom::LambdaNoop"
+    Properties: 
+      ServiceToken:
+        !Sub |
+          arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:macroFunction
+
+  JRandomBucket:
+    Type: AWS::S3::Bucket

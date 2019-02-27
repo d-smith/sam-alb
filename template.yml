@@ -9,6 +9,9 @@ Parameters:
   ALBStackName:
     Type: String
     Default: aelbee
+  VpcStackName:
+    Type: String
+    Default: veepc
 
 Resources:
 
@@ -20,3 +23,13 @@ Resources:
             Handler: app.lambdaHandler
             Runtime: nodejs8.10
 
+#    LambdaTargetGroup:
+#        Type: AWS::ElasticLoadBalancingV2::TargetGroup
+#        Properties:
+#            Name: LamdaTarget
+#            TargetType: lambda
+#            Port: 123
+#            Protocol: TCP
+#            VpcId: 
+#                Fn::ImportValue: !Join [-, [vpc, Ref: 'VpcStackName', 'VpcId']]
+            
