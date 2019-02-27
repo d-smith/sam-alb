@@ -73,5 +73,7 @@ aws elbv2 create-rule \
 ```
 
 
+## Custom Resource
 
+Exploring using a custom resource to create the target group. Learned the node SDK does not support lambda targets.
 
