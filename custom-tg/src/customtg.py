@@ -38,12 +38,13 @@ def handler(event, context):
             LOGGER.info('Function name:\n %s', fnName)
             
             tgResponse = client.create_target_group(
-                            Name='geoff',
+                            Name=fnName,
                             HealthCheckEnabled=True,
                             HealthCheckPath='/health',
                             TargetType='lambda'
                         )
 
+            print(tgResponse)
             send_response(event, context, "SUCCESS",
                           {"TargetGroupArn": tgResponse['TargetGroups'][0]['TargetGroupArn']})
         elif event['RequestType'] == 'Update':
@@ -52,6 +53,21 @@ def handler(event, context):
                           {"Message": "Resource update successful!"})
         elif event['RequestType'] == 'Delete':
             LOGGER.info('DELETE!')
+            fnName = event['ResourceProperties']['Function']
+            LOGGER.info('Function name for target group delete:\n %s', fnName)
+
+            response = client.describe_target_groups(
+                    Names=[
+                        fnName,
+                    ]
+                )
+
+            targetGroupArn = response['TargetGroups'][0]['TargetGroupArn']
+            LOGGER.info('target group arn for delete is %s', targetGroupArn)
+            
+            tgResponse = client.delete_target_group(
+                            TargetGroupArn=targetGroupArn
+                         )
             send_response(event, context, "SUCCESS",
                           {"Message": "Resource deletion successful!"})
         else:

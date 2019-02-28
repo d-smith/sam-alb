@@ -27,3 +27,6 @@ Resources:
             ServiceToken: !Sub 'arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:customTargetGroup'
             Function: !Ref HelloWorldFunction 
 
+Outputs:
+    TargetGroupArn: 
+        Value: !GetAtt MyCustomTargetGroup.TargetGroupArn

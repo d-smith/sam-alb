@@ -33,6 +33,8 @@ Resources:
               - Effect: Allow
                 Action:
                   - elasticloadbalancing:CreateTargetGroup
+                  - elasticloadbalancing:DescribeTargetGroups
+                  - elasticloadbalancing:DeleteTargetGroup
                 Resource: '*'
 
   CustomTG:
