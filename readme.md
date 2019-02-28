@@ -77,3 +77,4 @@ aws elbv2 create-rule \
 
 Exploring using a custom resource to create the target group. Learned the node SDK does not support lambda targets, but confirmed the python SDK supports this.
 
+Botocore present in lambda is not recent enough... fix via [this](https://www.mandsconsulting.com/lambda-functions-with-newer-version-of-boto3-than-available-by-default/) process.

@@ -7,10 +7,40 @@ Description: >
 
 Resources:
 
-    CustomTG:
-        Type: AWS::Serverless::Function
-        Properties:
-            FunctionName: customTargetGroup
-            CodeUri: src/
-            Handler: customtg.handler
-            Runtime: nodejs8.10
+  LambdaExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: "sts:AssumeRole"
+      Path: "/"
+      Policies:
+        - PolicyName: AllKidsLoveLog
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                  - logs:CreateLogGroup
+                Resource:
+                  - "arn:aws:logs:*:*:*"
+              - Effect: Allow
+                Action:
+                  - elasticloadbalancing:CreateTargetGroup
+                Resource: '*'
+
+  CustomTG:
+      Type: AWS::Serverless::Function
+      Properties:
+          FunctionName: customTargetGroup
+          CodeUri: src/
+          Handler: customtg.handler
+          Runtime: python2.7
+          Timeout: 60
+          Role: !GetAtt [ LambdaExecutionRole, Arn ]
