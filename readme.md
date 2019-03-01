@@ -1,80 +1,45 @@
 # sam-alb
 
-Simple minded integration of lambda with ALB
+Simple integration of lambda with ALB, with custom cloud formation resource to hook the lambda up to an ALB.
+
+## Deployment
+
+Note that you must carefully examine the default parameter settings in the cloud formation templates and override them as needed when installing cloud formation or SAM resources.
+
+### ALB Set Up
+
+This project assumes a set up where you want to install a lambda into an account the is already configured with a VPC and ALB. 
+
+If you do not have such an environment...
+
+1. Create a VPC for the ALB using the `vpc.yml` template in the `alb-setup` directory.
+2. Install a certificate using the ACM - see below for info on how to create a self signed cert if needed.
+3. Create the ALB using the `alb.yml` template in the `alb-setup` directory.
+
+If you need to create a self signed certificate, follow the  steps [here](https://docs.aws.amazon.com/elasticbeanstalk/latest/dg/configuring-https-ssl.html) and [here](https://docs.aws.amazon.com/elasticbeanstalk/latest/dg/configuring-https-ssl-upload.html).
+
+### Cloud Formation Custom Resource
+
+To deploy this stack, you must first deploy the custom resource lambda in the custom-tg directory. To do so, customize the `Makefile` then deploy via `make`.
+
+*Note* - the first time you deploy the project you must first do a `make dependencies` to pip install the latest versions of boto3 and botocore as they are required to support lambda targets and the current lambda runtime in AWS has an older version of boto3 that does not support this.
+
+### ALB Fronted Lambda
+
+With the custom lambda installed, update the `Makefile` to reflect your set up then `make`to install.
+
+
 
 ## Notes
 
-Local invoke
+### Local invoke
 
 ```console
-sam local invoke HelloWorldFunction --event event.json --region us-east-1 --profile profile-name
-```
-## Self Signed Cert
-
-What a pain... steps from [here](https://docs.aws.amazon.com/elasticbeanstalk/latest/dg/configuring-https-ssl.html) and [here](https://docs.aws.amazon.com/elasticbeanstalk/latest/dg/configuring-https-ssl-upload.html).
-
-
-## Deploy
-
-Create a vps stack, then an alb stack, then...
-
-```console
-sam package --template-file template.yml --s3-bucket sampack-97068 > packaged.yml
-sam deploy --stack-name mf --template-file packaged.yml  --capabilities CAPABILITY_IAM
+    sam local invoke HelloWorldFunction --event event.json --region us-east-1 --profile profile-name
 ```
 
-Deploy the lambda - review the settings in the Makefile, then:
+### Custom Resource
 
-```console
-make
-```
-
-Creating the target is not supported in cloud formation at the moment (TODO - verify this). Use the cli to finish things:
-
-Create the target group:
-
-```console
-aws elbv2 create-target-group \
---name hello-lambda \
---target-type lambda \
---health-check-enabled \
---health-check-path /hello
-```
-
-Note the target group arn from the output - you need this to add permissions and register the target. You will also need the lambda ARN.
-
-Add permission:
-
-```console
-aws lambda add-permission \
---function-name hwFunction \
---statement-id elb1 \
---principal elasticloadbalancing.amazonaws.com \
---action lambda:InvokeFunction \
---source-arn arn:aws:elasticloadbalancing:us-east-1:000011112222:targetgroup/hello-lambda/1bcc30c57e645c80
-```
-
-Register the target:
-
-```console
-aws elbv2 register-targets \
---target-group-arn arn:aws:elasticloadbalancing:us-east-1:000011112222:targetgroup/hello-lambda/1bcc30c57e645c80 \
---targets Id=arn:aws:lambda:us-east-1:000011112222:function:hwFunction
-```
-
-Add a rule:
-
-```console
-aws elbv2 create-rule \
---listener-arn arn:aws:elasticloadbalancing:us-east-1:000011112222:listener/app/geoffry/1a7bc1fd290c73b7/6bbc80adaeea67e0 \
---conditions Field=path-pattern,Values=/hello \
---priority 1 \
---actions Type=forward,TargetGroupArn=arn:aws:elasticloadbalancing:us-east-1:000011112222:targetgroup/hello-lambda/1bcc30c57e645c80
-```
-
-
-## Custom Resource
-
-Exploring using a custom resource to create the target group. Learned the node SDK does not support lambda targets, but confirmed the python SDK supports this.
-
-Botocore present in lambda is not recent enough... fix via [this](https://www.mandsconsulting.com/lambda-functions-with-newer-version-of-boto3-than-available-by-default/) process.
+* Custom resource was needed as current cloud formation does not support lambda targets for target groups.
+* First tried writing the custom resource using NodeJS, but when I ran it it did not support lambda targets... I did not verify the SDK version in the lambda runtime so it is possible it was a version lag not missing functionality in the SDK.
+* After abandoning a Node JS implementation (perhaps prematurely), discovered the python SDK version in the lambda environment lags the version of the SDK needed for lambda targets. Modified the project to upload the latest SDK version - see [this](https://www.mandsconsulting.com/lambda-functions-with-newer-version-of-boto3-than-available-by-default/) for details.
