@@ -35,6 +35,9 @@ Resources:
                   - elasticloadbalancing:CreateTargetGroup
                   - elasticloadbalancing:DescribeTargetGroups
                   - elasticloadbalancing:DeleteTargetGroup
+                  - elasticloadbalancing:RegisterTargets
+                  - elasticloadbalancing:DeregisterTargets
+                  - lambda:AddPermission
                 Resource: '*'
 
   CustomTG:

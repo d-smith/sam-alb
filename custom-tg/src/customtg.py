@@ -23,6 +23,7 @@ print("botocore version:"+botocore.__version__)
 LOGGER = logging.getLogger()
 LOGGER.setLevel(logging.INFO)
 client = boto3.client('elbv2')
+lambdaClient = boto3.client('lambda')
 
 
 def handler(event, context):
@@ -37,6 +38,7 @@ def handler(event, context):
             fnName = event['ResourceProperties']['Function']
             LOGGER.info('Function name:\n %s', fnName)
             
+            # Create target group
             tgResponse = client.create_target_group(
                             Name=fnName,
                             HealthCheckEnabled=True,
@@ -45,8 +47,34 @@ def handler(event, context):
                         )
 
             print(tgResponse)
+            targetGroupArn = tgResponse['TargetGroups'][0]['TargetGroupArn']
+
+            # Create lambda permission
+            lambdaPermResp = lambdaClient.add_permission(
+                FunctionName=fnName,
+                Action='lambda:InvokeFunction',
+                Principal='elasticloadbalancing.amazonaws.com',
+                SourceArn=targetGroupArn,
+                StatementId='perm4tg'
+            )
+
+            print(lambdaPermResp)
+
+            
+            # Register target
+            regResponse = client.register_targets(
+                                TargetGroupArn=targetGroupArn,
+                                Targets=[
+                                    {
+                                        'Id': event['ResourceProperties']['FunctionArn']
+                                    },
+                                ]
+                            )
+
+            print(regResponse)
+
             send_response(event, context, "SUCCESS",
-                          {"TargetGroupArn": tgResponse['TargetGroups'][0]['TargetGroupArn']})
+                          {"TargetGroupArn": targetGroupArn})
         elif event['RequestType'] == 'Update':
             LOGGER.info('UPDATE!')
             send_response(event, context, "SUCCESS",
@@ -65,6 +93,19 @@ def handler(event, context):
             targetGroupArn = response['TargetGroups'][0]['TargetGroupArn']
             LOGGER.info('target group arn for delete is %s', targetGroupArn)
             
+            # Deregister targets
+            deregResponse = client.deregister_targets(
+                TargetGroupArn=targetGroupArn,
+                Targets=[
+                    {
+                        'Id': event['ResourceProperties']['FunctionArn']
+                    }
+                ]
+            )
+
+            print(deregResponse)
+
+            # Delete target group
             tgResponse = client.delete_target_group(
                             TargetGroupArn=targetGroupArn
                          )
