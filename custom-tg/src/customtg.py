@@ -25,6 +25,42 @@ LOGGER.setLevel(logging.INFO)
 client = boto3.client('elbv2')
 lambdaClient = boto3.client('lambda')
 
+def create_target_group(fnName):
+    print('create target group')
+    tgResponse = client.create_target_group(
+                    Name=fnName,
+                    HealthCheckEnabled=True,
+                    HealthCheckPath='/health',
+                    TargetType='lambda'
+                )
+
+    targetGroupArn = tgResponse['TargetGroups'][0]['TargetGroupArn']
+    print('created target group %s', targetGroupArn)
+    return targetGroupArn
+
+def add_lambda_permission(fnName, targetGroupArn):
+    lambdaPermResp = lambdaClient.add_permission(
+                FunctionName=fnName,
+                Action='lambda:InvokeFunction',
+                Principal='elasticloadbalancing.amazonaws.com',
+                SourceArn=targetGroupArn,
+                StatementId='perm4tg'
+            )
+
+    print(lambdaPermResp)
+
+def register_target(targetGroupArn, lambdaFnArn):
+    regResponse = client.register_targets(
+                        TargetGroupArn=targetGroupArn,
+                        Targets=[
+                            {
+                                'Id': lambdaFnArn
+                            },
+                        ]
+                    )
+
+    print(regResponse)
+
 
 def handler(event, context):
     '''Handle Lambda event from AWS'''
@@ -39,39 +75,13 @@ def handler(event, context):
             LOGGER.info('Function name:\n %s', fnName)
             
             # Create target group
-            tgResponse = client.create_target_group(
-                            Name=fnName,
-                            HealthCheckEnabled=True,
-                            HealthCheckPath='/health',
-                            TargetType='lambda'
-                        )
-
-            print(tgResponse)
-            targetGroupArn = tgResponse['TargetGroups'][0]['TargetGroupArn']
+            targetGroupArn = create_target_group(fnName)
 
             # Create lambda permission
-            lambdaPermResp = lambdaClient.add_permission(
-                FunctionName=fnName,
-                Action='lambda:InvokeFunction',
-                Principal='elasticloadbalancing.amazonaws.com',
-                SourceArn=targetGroupArn,
-                StatementId='perm4tg'
-            )
+            add_lambda_permission(fnName, targetGroupArn)
 
-            print(lambdaPermResp)
-
-            
             # Register target
-            regResponse = client.register_targets(
-                                TargetGroupArn=targetGroupArn,
-                                Targets=[
-                                    {
-                                        'Id': event['ResourceProperties']['FunctionArn']
-                                    },
-                                ]
-                            )
-
-            print(regResponse)
+            register_target(targetGroupArn, event['ResourceProperties']['FunctionArn'])
 
             send_response(event, context, "SUCCESS",
                           {"TargetGroupArn": targetGroupArn})
