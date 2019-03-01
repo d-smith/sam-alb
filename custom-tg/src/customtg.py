@@ -7,26 +7,24 @@ from urllib2 import build_opener, HTTPHandler, Request
 import os
 import os.path
 import sys
- 
-envLambdaTaskRoot = os.environ["LAMBDA_TASK_ROOT"]
-print("LAMBDA_TASK_ROOT env var:"+os.environ["LAMBDA_TASK_ROOT"])
-print("sys.path:"+str(sys.path))
 
+logger = logging.getLogger()
+logger.setLevel(logging.INFO)
+
+envLambdaTaskRoot = os.environ["LAMBDA_TASK_ROOT"]
 sys.path.insert(0,envLambdaTaskRoot+"/botodeps")
-print("sys.path:"+str(sys.path))
 
 import boto3
 import botocore
-print("boto3 version:"+boto3.__version__)
-print("botocore version:"+botocore.__version__)
+logger.info("boto3 version: %s", boto3.__version__)
+logger.info("botocore version: %s", botocore.__version__)
 
-LOGGER = logging.getLogger()
-LOGGER.setLevel(logging.INFO)
+
 client = boto3.client('elbv2')
 lambdaClient = boto3.client('lambda')
 
 def create_target_group(fnName):
-    print('create target group')
+    logger.info('create target group')
     tgResponse = client.create_target_group(
                     Name=fnName,
                     HealthCheckEnabled=True,
@@ -35,10 +33,11 @@ def create_target_group(fnName):
                 )
 
     targetGroupArn = tgResponse['TargetGroups'][0]['TargetGroupArn']
-    print('created target group %s', targetGroupArn)
+    logger.info('created target group %s', targetGroupArn)
     return targetGroupArn
 
 def add_lambda_permission(fnName, targetGroupArn):
+    logger.info('create lambda permission')
     lambdaPermResp = lambdaClient.add_permission(
                 FunctionName=fnName,
                 Action='lambda:InvokeFunction',
@@ -47,9 +46,9 @@ def add_lambda_permission(fnName, targetGroupArn):
                 StatementId='perm4tg'
             )
 
-    print(lambdaPermResp)
 
 def register_target(targetGroupArn, lambdaFnArn):
+    logger.info('register target %s', lambdaFnArn)
     regResponse = client.register_targets(
                         TargetGroupArn=targetGroupArn,
                         Targets=[
@@ -59,7 +58,6 @@ def register_target(targetGroupArn, lambdaFnArn):
                         ]
                     )
 
-    print(regResponse)
 
 def target_group_to_delete(fnName):
     response = client.describe_target_groups(
@@ -69,11 +67,11 @@ def target_group_to_delete(fnName):
                 )
 
     targetGroupArn = response['TargetGroups'][0]['TargetGroupArn']
-    LOGGER.info('target group arn for delete is %s', targetGroupArn)
+    logger.info('target group arn for delete is %s', targetGroupArn)
     return targetGroupArn
     
 def dergister_target(targetGroupArn, lambdaFnArn):
-    print('dergister target %s', lambdaFnArn)
+    logger.info('dergister target %s', lambdaFnArn)
     client.deregister_targets(
         TargetGroupArn=targetGroupArn,
         Targets=[
@@ -84,7 +82,7 @@ def dergister_target(targetGroupArn, lambdaFnArn):
     )
 
 def delete_target_group(targetGroupArn):
-    print('delete target group %s', targetGroupArn)
+    logger.info('delete target group %s', targetGroupArn)
     client.delete_target_group(
         TargetGroupArn=targetGroupArn
     )
@@ -95,12 +93,12 @@ def handler(event, context):
     # Setup alarm for remaining runtime minus a second
     signal.alarm((context.get_remaining_time_in_millis() / 1000) - 1)
     try:
-        LOGGER.info('REQUEST RECEIVED:\n %s', event)
-        LOGGER.info('REQUEST RECEIVED:\n %s', context)
+        logger.info('REQUEST RECEIVED:\n %s', event)
+        logger.info('REQUEST RECEIVED:\n %s', context)
         if event['RequestType'] == 'Create':
-            LOGGER.info('CREATE!')
+            logger.info('CREATE!')
             fnName = event['ResourceProperties']['Function']
-            LOGGER.info('Function name:\n %s', fnName)
+            logger.info('Function name:\n %s', fnName)
             
             # Create target group
             targetGroupArn = create_target_group(fnName)
@@ -114,13 +112,13 @@ def handler(event, context):
             send_response(event, context, "SUCCESS",
                           {"TargetGroupArn": targetGroupArn})
         elif event['RequestType'] == 'Update':
-            LOGGER.info('UPDATE!')
+            logger.info('UPDATE!')
             send_response(event, context, "SUCCESS",
                           {"Message": "Resource update successful!"})
         elif event['RequestType'] == 'Delete':
-            LOGGER.info('DELETE!')
+            logger.info('DELETE!')
             fnName = event['ResourceProperties']['Function']
-            LOGGER.info('Function name for target group delete:\n %s', fnName)
+            logger.info('Function name for target group delete:\n %s', fnName)
 
             targetGroupArn = target_group_to_delete(fnName)
             
@@ -129,18 +127,18 @@ def handler(event, context):
             
             # Delete target group
             delete_target_group(targetGroupArn)
-            
+
             send_response(event, context, "SUCCESS",
                           {"Message": "Resource deletion successful!"})
         else:
-            LOGGER.info('FAILED!')
+            logger.info('FAILED!')
             send_response(event, context, "FAILED",
                           {"Message": "Unexpected event received from CloudFormation"})
     except: #pylint: disable=W0702
-        LOGGER.info('FAILED!')
-        LOGGER.info( sys.exc_info()[0])
-        LOGGER.info( sys.exc_info()[1])
-        LOGGER.info( sys.exc_info()[2])
+        logger.info('FAILED!')
+        logger.info( sys.exc_info()[0])
+        logger.info( sys.exc_info()[1])
+        logger.info( sys.exc_info()[2])
         send_response(event, context, "FAILED", {
             "Message": "Exception during processing"})
 
@@ -157,8 +155,8 @@ def send_response(event, context, response_status, response_data):
         "Data": response_data
     })
 
-    LOGGER.info('ResponseURL: %s', event['ResponseURL'])
-    LOGGER.info('ResponseBody: %s', response_body)
+    logger.info('ResponseURL: %s', event['ResponseURL'])
+    logger.info('ResponseBody: %s', response_body)
 
     opener = build_opener(HTTPHandler)
     request = Request(event['ResponseURL'], data=response_body)
@@ -166,8 +164,8 @@ def send_response(event, context, response_status, response_data):
     request.add_header('Content-Length', len(response_body))
     request.get_method = lambda: 'PUT'
     response = opener.open(request)
-    LOGGER.info("Status code: %s", response.getcode())
-    LOGGER.info("Status message: %s", response.msg)
+    logger.info("Status code: %s", response.getcode())
+    logger.info("Status message: %s", response.msg)
 
 
 def timeout_handler(_signal, _frame):
