@@ -86,7 +86,58 @@ def delete_target_group(targetGroupArn):
     client.delete_target_group(
         TargetGroupArn=targetGroupArn
     )
+
+def get_listener_arn(lb_name, proto, port):
+    logger.info('get listener for %s, proto %s, port %d', lb_name, proto, port)
+    # First get the load balancer arn
+    response = client.describe_load_balancers(
+        Names=[lb_name]
+    )
     
+    lbArn = response['LoadBalancers'][0]['LoadBalancerArn']
+    
+    # Now get the listeners and filter by desired protocol and port
+    listenerResponse = client.describe_listeners(
+        LoadBalancerArn=lbArn
+    )
+    
+    listener = [d for d in listenerResponse['Listeners'] if d['Protocol'] == proto and d['Port'] == port][0]
+    
+    return listener['ListenerArn']
+
+def get_next_rule_order(listenerArn):
+    rulesResp = client.describe_rules(
+        ListenerArn=listenerArn
+    )
+    
+    priorities = [r['Priority'] for r in rulesResp['Rules'] if r['Priority'] != 'default']
+    if not priorities:
+        return 1
+    else:
+        return max(list(map(int, priorities))) + 1 
+
+def create_rule(listenerArn, pathPattern, targetGroupArn, priority):
+    logger.info('add listener rule for path %s', pathPattern)
+    client.create_rule(
+        ListenerArn=listenerArn,
+        Conditions=[
+            {
+                'Field': 'path-pattern',
+                'Values': [
+                    pathPattern,
+                ]
+            },
+        ],
+        Priority=priority,
+        Actions=[
+            {
+                'Type': 'forward',
+                'TargetGroupArn': targetGroupArn,
+                
+                'Order': 1,
+            },
+        ]
+    )
 
 def handler(event, context):
     '''Handle Lambda event from AWS'''
@@ -108,6 +159,20 @@ def handler(event, context):
 
             # Register target
             register_target(targetGroupArn, event['ResourceProperties']['FunctionArn'])
+
+            # What's the next rule no for the listener rule order?
+        
+            listenerArn = get_listener_arn(
+                event['ResourceProperties']['LoadBalancerName'],
+                event['ResourceProperties']['ListenerProtocol'],
+                int(event['ResourceProperties']['ListenerPort'])
+            )
+
+            nextRuleNo = get_next_rule_order(listenerArn)
+            logger.info("Next rule number is %d", nextRuleNo)
+
+            # Create the rule
+            create_rule(listenerArn, event['ResourceProperties']['PathPattern'], targetGroupArn, nextRuleNo)
 
             send_response(event, context, "SUCCESS",
                           {"TargetGroupArn": targetGroupArn})

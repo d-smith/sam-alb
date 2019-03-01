@@ -6,9 +6,18 @@ Description: >
     Sample SAM app to integrate an ALB with a lambda
 
 Parameters:
-  ALBStackName:
+  LoadBalancerName:
     Type: String
-    Default: aelbee
+    Default: geoffry
+  ListenerProtocol:
+    Type: String
+    Default: HTTPS
+  ListenerPort:
+    Type: Number
+    Default: 443
+  PathPattern:
+    Type: String
+    Default: '/foo'
 
 Resources:
 
@@ -27,6 +36,10 @@ Resources:
             ServiceToken: !Sub 'arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:customTargetGroup'
             Function: !Ref HelloWorldFunction 
             FunctionArn: !GetAtt HelloWorldFunction.Arn
+            LoadBalancerName: !Ref LoadBalancerName
+            ListenerProtocol: !Ref ListenerProtocol
+            ListenerPort: !Ref ListenerPort
+            PathPattern: !Ref PathPattern
 
     MyPermission:
         Type: AWS::Lambda::Permission

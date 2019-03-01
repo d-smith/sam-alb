@@ -37,6 +37,10 @@ Resources:
                   - elasticloadbalancing:DeleteTargetGroup
                   - elasticloadbalancing:RegisterTargets
                   - elasticloadbalancing:DeregisterTargets
+                  - elasticloadbalancing:DescribeLoadBalancers
+                  - elasticloadbalancing:DescribeListeners
+                  - elasticloadbalancing:DescribeRules
+                  - elasticloadbalancing:CreateRule
                   - lambda:AddPermission
                 Resource: '*'
 
