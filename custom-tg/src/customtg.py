@@ -61,6 +61,34 @@ def register_target(targetGroupArn, lambdaFnArn):
 
     print(regResponse)
 
+def target_group_to_delete(fnName):
+    response = client.describe_target_groups(
+                    Names=[
+                        fnName,
+                    ]
+                )
+
+    targetGroupArn = response['TargetGroups'][0]['TargetGroupArn']
+    LOGGER.info('target group arn for delete is %s', targetGroupArn)
+    return targetGroupArn
+    
+def dergister_target(targetGroupArn, lambdaFnArn):
+    print('dergister target %s', lambdaFnArn)
+    client.deregister_targets(
+        TargetGroupArn=targetGroupArn,
+        Targets=[
+            {
+                'Id': lambdaFnArn
+            }
+        ]
+    )
+
+def delete_target_group(targetGroupArn):
+    print('delete target group %s', targetGroupArn)
+    client.delete_target_group(
+        TargetGroupArn=targetGroupArn
+    )
+    
 
 def handler(event, context):
     '''Handle Lambda event from AWS'''
@@ -94,31 +122,14 @@ def handler(event, context):
             fnName = event['ResourceProperties']['Function']
             LOGGER.info('Function name for target group delete:\n %s', fnName)
 
-            response = client.describe_target_groups(
-                    Names=[
-                        fnName,
-                    ]
-                )
-
-            targetGroupArn = response['TargetGroups'][0]['TargetGroupArn']
-            LOGGER.info('target group arn for delete is %s', targetGroupArn)
+            targetGroupArn = target_group_to_delete(fnName)
             
             # Deregister targets
-            deregResponse = client.deregister_targets(
-                TargetGroupArn=targetGroupArn,
-                Targets=[
-                    {
-                        'Id': event['ResourceProperties']['FunctionArn']
-                    }
-                ]
-            )
-
-            print(deregResponse)
-
+            dergister_target(targetGroupArn, event['ResourceProperties']['FunctionArn'])
+            
             # Delete target group
-            tgResponse = client.delete_target_group(
-                            TargetGroupArn=targetGroupArn
-                         )
+            delete_target_group(targetGroupArn)
+            
             send_response(event, context, "SUCCESS",
                           {"Message": "Resource deletion successful!"})
         else:
