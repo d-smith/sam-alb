@@ -139,6 +139,17 @@ def create_rule(listenerArn, pathPattern, targetGroupArn, priority):
         ]
     )
 
+def get_rule_arn_for_target_group(listenerArn, targetGroupArn):
+    logger.info('get listener rule for target group')
+    rulesResp = client.describe_rules(
+        ListenerArn=listenerArn
+    )
+
+    theRule = [r for r in rulesResp['Rules'] if r['Priority'] != 'default' and len(r['Actions']) == 1 and r['Actions'][0]['TargetGroupArn'] == targetGroupArn][0]
+    logger.info('the rule: %s', theRule)
+
+    return theRule['RuleArn']
+
 def handler(event, context):
     '''Handle Lambda event from AWS'''
     # Setup alarm for remaining runtime minus a second
@@ -185,7 +196,20 @@ def handler(event, context):
             fnName = event['ResourceProperties']['Function']
             logger.info('Function name for target group delete:\n %s', fnName)
 
+            # Get target group and listener arns
             targetGroupArn = target_group_to_delete(fnName)
+
+            listenerArn = get_listener_arn(
+                event['ResourceProperties']['LoadBalancerName'],
+                event['ResourceProperties']['ListenerProtocol'],
+                int(event['ResourceProperties']['ListenerPort'])
+            )
+
+            # Grab the rule to delete
+            ruleArn = get_rule_arn_for_target_group(listenerArn, targetGroupArn)
+
+            # Delete the rule
+            client.delete_rule(RuleArn=ruleArn)
             
             # Deregister targets
             dergister_target(targetGroupArn, event['ResourceProperties']['FunctionArn'])

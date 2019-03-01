@@ -41,6 +41,7 @@ Resources:
                   - elasticloadbalancing:DescribeListeners
                   - elasticloadbalancing:DescribeRules
                   - elasticloadbalancing:CreateRule
+                  - elasticloadbalancing:DeleteRule
                   - lambda:AddPermission
                 Resource: '*'
 
