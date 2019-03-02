@@ -28,6 +28,17 @@ To deploy this stack, you must first deploy the custom resource lambda in the cu
 
 With the custom lambda installed, update the `Makefile` to reflect your set up then `make`to install.
 
+## Using the Custom Resource
+
+To use the custome resource, in your cloud formation create a resource of type `Custom::CustomTG`. The resource has the following properties:
+
+* ServiceToken - this is the ARN of the Lamdba function implementing the custom resource. You can form this in cloud formation as `!Sub 'arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:customTargetGroup'`
+* Function - name of the Lambda function to target
+* FunctionArn - arn of the Lambda function to target
+* LoadBalancerName - name of the load balancer the traffic to the Lambda will flow through
+* ListenerProtocol - protocol of the listener that will route traffic to the Lambda
+* ListenerPort - port the listener that will route traffic to the lambda is listening on
+* PathPattern - path pattern used to pick off traffic for a specific lambda
 
 
 ## Notes
