@@ -17,7 +17,7 @@ Parameters:
     Default: 443
   PathPattern:
     Type: String
-    Default: '/foo'
+    Default: '/bar'
 
 Resources:
 

@@ -42,6 +42,7 @@ Resources:
                   - elasticloadbalancing:DescribeRules
                   - elasticloadbalancing:CreateRule
                   - elasticloadbalancing:DeleteRule
+                  - elasticloadbalancing:SetRulePriorities
                   - lambda:AddPermission
                 Resource: '*'
 

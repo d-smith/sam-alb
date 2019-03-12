@@ -150,6 +150,46 @@ def get_rule_arn_for_target_group(listenerArn, targetGroupArn):
 
     return theRule['RuleArn']
 
+def has_match_all_condition(rule):
+    if not rule['Conditions'] or len(rule['Conditions']) == 0:
+        return False
+    
+    for cond in rule['Conditions']:
+        if cond['Field'] and cond['Field'] == 'path-pattern':
+            values = cond['Values']
+            
+            for v in values:
+                if v == '*' or v == '/*':
+                    return True
+
+    return False
+
+def star_path_rule(listenerArn):
+    rulesResp = client.describe_rules(
+        ListenerArn=listenerArn
+    )
+    
+    
+    rules = rulesResp['Rules']
+    
+    for r in rules:
+        if has_match_all_condition(r):
+            return r
+    
+    return None
+
+def change_priority(r, newPriority):
+    response = client.set_rule_priorities(
+        RulePriorities=[
+            {
+                'RuleArn': r['RuleArn'],
+                'Priority': newPriority
+            },
+        ]
+    )
+    
+    print(response)
+
 def handler(event, context):
     '''Handle Lambda event from AWS'''
     # Setup alarm for remaining runtime minus a second
@@ -184,6 +224,13 @@ def handler(event, context):
 
             # Create the rule
             create_rule(listenerArn, event['ResourceProperties']['PathPattern'], targetGroupArn, nextRuleNo)
+
+            # If there's a * path higher up in the list of rules, move it to the bottom to allow the others
+            # to match.
+            starPathRule = star_path_rule(listenerArn)
+            if starPathRule:
+                change_priority(starPathRule, nextRuleNo + 1)
+
 
             send_response(event, context, "SUCCESS",
                           {"TargetGroupArn": targetGroupArn})
